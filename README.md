@@ -58,3 +58,17 @@ Clone this repo:
 git clone https://github.com/blessing-bester/Openshift-production-platform.git
 cd Openshift-production-platform
 
+Deploy ArgoCD:
+oc apply -f manifests/argocd/
+
+Deploy Tekton Pipelines:
+oc apply -f manifests/tekton/
+
+Deploy Monitoring:
+oc apply -f manifests/monitoring/
+
+Deploy Your Applications:
+oc apply -f manifests/sample-apps/
+
+
+
