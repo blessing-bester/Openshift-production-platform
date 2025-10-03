@@ -1,0 +1,81 @@
+name: OpenShift CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+env:
+  OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
+  OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
+  OPENSHIFT_NAMESPACE: "my-namespace"
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  IMAGE_REGISTRY_USER: ${{ github.actor }}
+  IMAGE_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+  APP_NAME: "sample-app"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate YAML & Tekton
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: manifests/
+      - name: Validate Kubernetes YAML
+        uses: instrumenta/kubeval-action@v1
+        with:
+          files: manifests/**/*.yaml
+      - name: Tekton Pipeline Lint
+        run: tkn pipeline describe -f manifests/tekton/pipeline-build-deploy.yaml --dry-run
+
+  build:
+    runs-on: ubuntu-latest
+    name: Build and Push Sample App Image
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.APP_NAME }}
+          tags: latest
+          dockerfiles: ./Dockerfile
+      - name: Push image
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ env.APP_NAME }}
+          tags: latest
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ env.IMAGE_REGISTRY_USER }}
+          password: ${{ env.IMAGE_REGISTRY_PASSWORD }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to OpenShift
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install oc CLI
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          oc: 4
+      - name: Log in to OpenShift
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server_url: ${{ env.OPENSHIFT_SERVER }}
+          openshift_token: ${{ env.OPENSHIFT_TOKEN }}
+          namespace: ${{ env.OPENSHIFT_NAMESPACE }}
+      - name: Deploy ArgoCD
+        run: oc apply -f manifests/argocd/
+      - name: Deploy Tekton Pipelines
+        run: oc apply -f manifests/tekton/
+      - name: Deploy Monitoring Stack
+        run: oc apply -f manifests/monitoring/
+      - name: Deploy Sample App
+        run: oc apply -f manifests/sample-apps/
+      - name: Print App URL
+        run: echo "Your app is available via OpenShift route"
