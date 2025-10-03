@@ -1,8 +1,9 @@
-# Project Name
+# Openshift-production-platform
+
 
 <!-- Badges -->
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Terraform](https://img.shields.io/badge/terraform-v1.5-purple)
+![Terraform](https://img.shields.io/badge/openshift-v1.5-red)
 ![Maintained](https://img.shields.io/badge/maintained-yes-green)
 
 <!-- Project Description -->
